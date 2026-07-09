@@ -4,7 +4,7 @@
 
 Crucially, **GasGraph operates independently of external black-box routing APIs** (such as OSRM or Google Maps API). It constructs its own topological graph engine directly from raw geospatial datasets.
 
-![GasGraph MVP Dashboard](/Users/simonxji/Documents/GasGraph_AI/src/assets/mvpProduct.png) *(Değiştir: Buraya GitHub'a yüklediğin harita SS'inin yolunu koy)*
+![GasGraph MVP Dashboard](/Users/simonxji/Documents/GasGraph_AI/src/assets/mvpProduct.png)
 
 ---
 
