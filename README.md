@@ -4,10 +4,6 @@
 
 Crucially, **GasGraph operates independently of external black-box routing APIs** (such as OSRM or Google Maps API). It constructs its own topological graph engine directly from raw geospatial datasets.
 
-<p align="center">
-  <img src="src/assets/mvpProduct.png" width="400" alt="GasGraph MVP Dashboard">
-</p>
-
 ---
 
 ## 🚀 Key Features & Architectural Core
@@ -21,6 +17,13 @@ Crucially, **GasGraph operates independently of external black-box routing APIs*
 
 ---
 
+## MVP Dashboard Preview
+
+<p align="center">
+  <img src="src/assets/mvpProduct.png" width="400" alt="GasGraph MVP Dashboard">
+</p>
+
+---
 ## Technology Stack
 
 - **Data Processing & Pipeline:** Python 3.13, Pandas, Supabase-py client
