@@ -2,3 +2,7 @@ config.py
 turkey-gas-station-data/*.json
 pythonProgramlama
 turkey-gas-station-data
+.DS_Store
+resize_logos.py
+assets/
+__pycache__/
