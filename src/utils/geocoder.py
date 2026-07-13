@@ -1,4 +1,3 @@
-# İPUCU: Terminalden 'pip install geopy' kütüphanesini kurman gerekecek.
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 

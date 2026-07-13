@@ -9,15 +9,16 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import supabase
 
-st.set_page_config(page_title="GasGraph Optimizer", layout="wide", initial_sidebar_state="expanded")
+# page_icon kısmına kendi logomuzu koyabiliriz veya şimdilik böyle kalabilir
+st.set_page_config(page_title="GasGraph Optimizer", layout="wide", initial_sidebar_state="expanded", page_icon=":no_mouth:")
 
 # ==========================================
-# 0. SESSION STATE (Hafıza Yönetimi)
+# 0. SESSION STATE
 # ==========================================
 if "remaining_range" not in st.session_state:
-    st.session_state.remaining_range = 150 # Default hesaplanan başlangıç menzili
+    st.session_state.remaining_range = 150 
 if "current_location" not in st.session_state:
-    st.session_state.current_location = "Diyarbakır" 
+    st.session_state.current_location = "Istanbul" 
 
 # ==========================================
 # 1. LOAD REAL CLOUD DATA
@@ -30,40 +31,41 @@ def load_gold_data():
 df = load_gold_data()
 
 # ==========================================
-# 2. OPTIMIZATION UI (FORM YAPISI)
+# 2. OPTIMIZATION UI
 # ==========================================
-# st.sidebar.form ile tüm girdileri bir pakete alıyoruz.
-# Butona basılana kadar sayfa ASLA yenilenmez (Ekran kararmaz!)
+col1, col_logo, col2 = st.sidebar.columns([1, 4, 1]) 
+with col_logo:
+    st.image("src/assets/gasgraph_logo.png", use_container_width=True)
+
 with st.sidebar.form(key="route_setup_form"):
-    st.title("🛣️ Route Setup")
-    start_loc = st.text_input("Başlangıç Noktası", value=st.session_state.current_location)
-    end_loc = st.text_input("Varış Noktası", value="İstanbul")
+    st.title("Route Setup")
+    start_loc = st.text_input("Start Location", value=st.session_state.current_location)
+    end_loc = st.text_input("Destination", value="Ankara")
 
-    st.markdown("---")
-    st.title("🚗 Vehicle & Capacity")
-    engine_type = st.selectbox("Araç Tipi", ["İçten Yanmalı (Fuel)", "Elektrikli (EV)"])
+    st.divider()
     
-    # Kullanıcıdan kapasite ve anlık durumu alıyoruz
-    max_range = st.number_input("Tam Depo / Tam Şarj Menzili (KM)", min_value=100, max_value=1500, value=600, step=50)
-    current_fuel_pct = st.slider("Mevcut Yakıt/Şarj Seviyesi (%)", min_value=1, max_value=100, value=25, step=1)
+    st.title("Vehicle & Capacity")
+    engine_type = st.selectbox("Vehicle Type", ["Combustion (Fuel)", "Electric (EV)"])
     
-    st.markdown("---")
-    st.title("⭐ Preferences")
-    req_wc = st.checkbox("WC Bulunsun (Bonus)")
-    req_market = st.checkbox("Market Bulunsun (Bonus)")
-    req_strict = st.checkbox("Sadece LPG (Fuel) / Hızlı Şarj (EV) (Strict)")
+    # Kullanıcıdan doğrudan ekranda gördüğü kalan menzili istiyoruz (Çok daha pratik!)
+    current_range = st.number_input("Current Dashboard Range (KM)", min_value=10, max_value=1500, value=st.session_state.remaining_range, step=10)
+    
+    st.divider()
+    
+    st.title("Preferences")
+    req_wc = st.checkbox("WC Available (Bonus)")
+    req_market = st.checkbox("Market Available (Bonus)")
+    req_strict = st.checkbox("LPG (Fuel) / Fast Charge (EV) Only (Strict)")
 
-    # Butonu aşağı itmek için görünmez bir boşluk ekliyoruz
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    # Formu tetikleyen aksiyon butonu
-    submit_button = st.form_submit_button(label="Rotayı Optimize Et   🚀")
+    col_space1, col_btn, col_space2 = st.columns([1, 4, 1])
+    with col_btn:
+        submit_button = st.form_submit_button(label="Optimize Route", use_container_width=True)
 
-# Butona basıldığında matematiksel hesaplamaları yapıp state'i güncelliyoruz
 if submit_button:
     st.session_state.current_location = start_loc
-    # Gerçek menzil hesabı: (Tam kapasite) * (Yüzde / 100)
-    st.session_state.remaining_range = int(max_range * (current_fuel_pct / 100))
+    st.session_state.remaining_range = current_range # Doğrudan girilen değeri state'e atıyoruz
 
 # ==========================================
 # 3. FILTERING THE DATA
@@ -79,12 +81,12 @@ elif "EV" in engine_type and req_strict:
 # ==========================================
 # 4. MAIN DASHBOARD UI
 # ==========================================
-st.title("GasGraph - Akaryakıt & Rota Optimizasyonu")
-
 col1, col2, col3 = st.columns(3)
-col1.metric(label="Hedefe Kalan Yol", value="~1200 KM") # Diyarbakır - İstanbul ortalama
-col2.metric(label="Mevcut Menzil", value=f"{st.session_state.remaining_range} KM", delta="- Kritik İkmal Gerekiyor" if st.session_state.remaining_range < 150 else "")
-col3.metric(label="Taranan İstasyon", value=len(filtered_df))
+col1.metric(label="Distance to Destination", value="~450 KM") 
+col2.metric(label="Current Range", value=f"{st.session_state.remaining_range} KM", delta="- Critical Refuel Needed" if st.session_state.remaining_range < 150 else "")
+col3.metric(label="Scanned Stations", value=len(filtered_df))
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
 # 5. MAP CREATION
