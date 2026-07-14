@@ -6,6 +6,7 @@ from streamlit_folium import st_folium
 import os
 import sys
 from utils.geocoder import get_coordinates
+from utils.optimizer import calculate_route
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import supabase
@@ -69,15 +70,37 @@ if submit_button:
     st.session_state.current_location = start_loc
     st.session_state.remaining_range = current_range 
     
-    # --- TRANSLATED MESSAGES ---
-    with st.spinner("🗺️ Calculating coordinates..."): 
+    with st.spinner("🗺️ Calculating coordinates and optimizing route..."): 
         start_coords = get_coordinates(start_loc)
         end_coords = get_coordinates(end_loc)
         
         if start_coords == (None, None) or end_coords == (None, None):
             st.error("City not found. Please enter a valid location name.")
         else:
-            st.success(f"Route is being generated! Start: {start_coords}, Destination: {end_coords}")
+            # Koordinatlar bulundu, algoritmayı çalıştırıyoruz!
+            try:
+                # Kullanıcının bonus tercihlerini ayarlıyoruz
+                w_bonus = 5.0 if req_wc else 0.0
+                m_bonus = 3.0 if req_market else 0.0
+                
+                # Rota hesaplama fonksiyonunu çağırıyoruz
+                optimized_route = calculate_route(
+                    start_coords=start_coords,
+                    end_coords=end_coords,
+                    current_range=current_range,
+                    max_range=600, # Şimdilik aracın full depo menzilini 600 KM varsayıyoruz
+                    df_stations=filtered_df,
+                    wc_bonus=w_bonus,
+                    market_bonus=m_bonus
+                )
+                
+                st.success(f"Route generated successfully with {len(optimized_route)} stops!")
+                
+                # Çıkan rotayı haritada gösterebilmek için Session State (Hafıza) içine kaydediyoruz
+                st.session_state.optimized_route = optimized_route 
+                
+            except Exception as e:
+                st.error(f"Optimization failed. Try a different route or increase your current range. Error: {e}")
 
 # ==========================================
 # 3. FILTERING THE DATA
