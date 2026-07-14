@@ -5,11 +5,11 @@ from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 import os
 import sys
+from utils.geocoder import get_coordinates
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import supabase
 
-# page_icon kısmına kendi logomuzu koyabiliriz veya şimdilik böyle kalabilir
 st.set_page_config(page_title="GasGraph Optimizer", layout="wide", initial_sidebar_state="expanded", page_icon=":no_mouth:")
 
 # ==========================================
@@ -47,12 +47,14 @@ with st.sidebar.form(key="route_setup_form"):
     st.title("Vehicle & Capacity")
     engine_type = st.selectbox("Vehicle Type", ["Combustion (Fuel)", "Electric (EV)"])
     
-    # Kullanıcıdan doğrudan ekranda gördüğü kalan menzili istiyoruz (Çok daha pratik!)
     current_range = st.number_input("Current Dashboard Range (KM)", min_value=10, max_value=1500, value=st.session_state.remaining_range, step=10)
     
     st.divider()
     
     st.title("Preferences")
+    brand_options = ["All Brands"] + sorted(df['provider'].dropna().unique().tolist())
+    selected_brand = st.selectbox("Preferred Brand", brand_options)
+    
     req_wc = st.checkbox("WC Available (Bonus)")
     req_market = st.checkbox("Market Available (Bonus)")
     req_strict = st.checkbox("LPG (Fuel) / Fast Charge (EV) Only (Strict)")
@@ -65,13 +67,27 @@ with st.sidebar.form(key="route_setup_form"):
 
 if submit_button:
     st.session_state.current_location = start_loc
-    st.session_state.remaining_range = current_range # Doğrudan girilen değeri state'e atıyoruz
+    st.session_state.remaining_range = current_range 
+    
+    # --- TRANSLATED MESSAGES ---
+    with st.spinner("🗺️ Calculating coordinates..."): 
+        start_coords = get_coordinates(start_loc)
+        end_coords = get_coordinates(end_loc)
+        
+        if start_coords == (None, None) or end_coords == (None, None):
+            st.error("City not found. Please enter a valid location name.")
+        else:
+            st.success(f"Route is being generated! Start: {start_coords}, Destination: {end_coords}")
 
 # ==========================================
 # 3. FILTERING THE DATA
 # ==========================================
 target_type = "fuel" if "Fuel" in engine_type else "ev"
 filtered_df = df[df['station_type'] == target_type].copy()
+
+# Marka filtresi eğer "All Brands" değilse, sadece seçilen markayı filtrele
+if selected_brand != "All Brands":
+    filtered_df = filtered_df[filtered_df['provider'] == selected_brand]
 
 if "Fuel" in engine_type and req_strict:
     filtered_df = filtered_df[filtered_df['has_lpg'] == True]
