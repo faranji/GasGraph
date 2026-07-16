@@ -55,7 +55,7 @@ df = load_gold_data()
 # ==========================================
 # 2. SIDEBAR & UI FORM
 # ==========================================
-col1, col_logo, col2 = st.sidebar.columns([1, 5, 1]) 
+col1, col_logo, col2 = st.sidebar.columns([1, 8, 1]) 
 with col_logo:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     logo_path = os.path.join(current_dir, "assets", "gasgraph_logo.png")
@@ -169,7 +169,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 m = folium.Map(
     location=[39.0, 35.0], 
     zoom_start=6, 
-    tiles="CartoDB positron" 
+    tiles="CartoDB dark_matter" 
 )
 marker_cluster = MarkerCluster().add_to(m)
 
@@ -192,8 +192,7 @@ for idx, row in filtered_df.iterrows():
             icon=custom_icon
         ).add_to(marker_cluster)  
     else:
-        # 2. MARKER RENKLERİNİ LOGO İLE UYUMLU YAP (EV için mavi, Fuel için turuncu)
-        folium.Marker(
+       folium.Marker(
             location=[row['lat'], row['lon']],
             tooltip=tooltip_text,
             icon=folium.Icon(
