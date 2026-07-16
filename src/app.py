@@ -1,3 +1,6 @@
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 import streamlit as st
 import pandas as pd
 import folium
@@ -6,7 +9,7 @@ from streamlit_folium import st_folium
 import os
 import sys
 from utils.geocoder import get_coordinates
-from utils.optimizer import calculate_route
+from utils.optimizer import calculate_route, get_real_road_route
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import supabase
@@ -26,13 +29,33 @@ if "current_location" not in st.session_state:
 # ==========================================
 @st.cache_data(ttl=3600)
 def load_gold_data():
-    response = supabase.table("gasgraph_gold_stations").select("*").execute()
-    return pd.DataFrame(response.data)
+    all_data = []
+    offset = 0
+    chunk_size = 1000
+    
+    while True:
+        # Supabase'den veriyi .range() ile sayfa sayfa (1000'er 1000'er) çekiyoruz
+        response = supabase.table("gasgraph_gold_stations").select("*").range(offset, offset + chunk_size - 1).execute()
+        chunk = response.data
+        
+        # Eğer çekilen sayfada hiç veri yoksa döngüyü kır
+        if not chunk:
+            break
+            
+        all_data.extend(chunk)
+        
+        # Eğer gelen veri 1000'den azsa, son sayfaya ulaşmışız demektir
+        if len(chunk) < chunk_size:
+            break
+            
+        offset += chunk_size
+
+    return pd.DataFrame(all_data)
 
 df = load_gold_data()
 
 # ==========================================
-# 2. OPTIMIZATION UI
+# 2. SIDEBAR & UI FORM
 # ==========================================
 col1, col_logo, col2 = st.sidebar.columns([1, 4, 1]) 
 with col_logo:
@@ -49,12 +72,23 @@ with st.sidebar.form(key="route_setup_form"):
     engine_type = st.selectbox("Vehicle Type", ["Combustion (Fuel)", "Electric (EV)"])
     
     current_range = st.number_input("Current Dashboard Range (KM)", min_value=10, max_value=1500, value=st.session_state.remaining_range, step=10)
-    
+    max_range = st.number_input("Vehicle Max Capacity (Full Tank/Battery KM)", min_value=100, max_value=1500, value=400, step=10)
+
     st.divider()
     
     st.title("Preferences")
-    brand_options = ["All Brands"] + sorted(df['provider'].dropna().unique().tolist())
-    selected_brand = st.selectbox("Preferred Brand", brand_options)
+    raw_brands = sorted(df['provider'].dropna().unique().tolist())
+    brand_options = ["All Brands"] + raw_brands
+    
+    # Kullanıcıya gösterilecek metni güzelleştiren küçük bir fonksiyon
+    def format_brand_name(brand):
+        if brand == "All Brands":
+            return brand
+        # Alt çizgileri sil, boşluk koy ve Baş Harflerini Büyüt (title)
+        return brand.replace("_", " ").title()
+
+    # format_func parametresi ile arka planda orijinal veriyi tutup, ekranda makyajlı halini gösteriyoruz
+    selected_brand = st.selectbox("Preferred Brand", options=brand_options, format_func=format_brand_name)
     
     req_wc = st.checkbox("WC Available (Bonus)")
     req_market = st.checkbox("Market Available (Bonus)")
@@ -66,6 +100,24 @@ with st.sidebar.form(key="route_setup_form"):
     with col_btn:
         submit_button = st.form_submit_button(label="Optimize Route", use_container_width=True)
 
+# ==========================================
+# 3. FILTERING THE DATA (YUKARI TAŞINDI)
+# ==========================================
+target_type = "fuel" if "Fuel" in engine_type else "ev"
+filtered_df = df[df['station_type'] == target_type].copy()
+
+# Marka filtresi eğer "All Brands" değilse, sadece seçilen markayı filtrele
+if selected_brand != "All Brands":
+    filtered_df = filtered_df[filtered_df['provider'] == selected_brand]
+
+if "Fuel" in engine_type and req_strict:
+    filtered_df = filtered_df[filtered_df['has_lpg'] == True]
+elif "EV" in engine_type and req_strict:
+    filtered_df = filtered_df[filtered_df['has_fast_charge'] == True]
+
+# ==========================================
+# 4. OPTIMIZATION TRIGGER (AŞAĞI TAŞINDI)
+# ==========================================
 if submit_button:
     st.session_state.current_location = start_loc
     st.session_state.remaining_range = current_range 
@@ -83,12 +135,12 @@ if submit_button:
                 w_bonus = 5.0 if req_wc else 0.0
                 m_bonus = 3.0 if req_market else 0.0
                 
-                # Rota hesaplama fonksiyonunu çağırıyoruz
+                # Rota hesaplama fonksiyonunu çağırıyoruz (filtered_df artık tanımlı!)
                 optimized_route = calculate_route(
                     start_coords=start_coords,
                     end_coords=end_coords,
                     current_range=current_range,
-                    max_range=600, # Şimdilik aracın full depo menzilini 600 KM varsayıyoruz
+                    max_range=max_range,
                     df_stations=filtered_df,
                     wc_bonus=w_bonus,
                     market_bonus=m_bonus
@@ -103,22 +155,7 @@ if submit_button:
                 st.error(f"Optimization failed. Try a different route or increase your current range. Error: {e}")
 
 # ==========================================
-# 3. FILTERING THE DATA
-# ==========================================
-target_type = "fuel" if "Fuel" in engine_type else "ev"
-filtered_df = df[df['station_type'] == target_type].copy()
-
-# Marka filtresi eğer "All Brands" değilse, sadece seçilen markayı filtrele
-if selected_brand != "All Brands":
-    filtered_df = filtered_df[filtered_df['provider'] == selected_brand]
-
-if "Fuel" in engine_type and req_strict:
-    filtered_df = filtered_df[filtered_df['has_lpg'] == True]
-elif "EV" in engine_type and req_strict:
-    filtered_df = filtered_df[filtered_df['has_fast_charge'] == True]
-
-# ==========================================
-# 4. MAIN DASHBOARD UI
+# 5. MAIN DASHBOARD UI
 # ==========================================
 col1, col2, col3 = st.columns(3)
 col1.metric(label="Distance to Destination", value="~450 KM") 
@@ -128,7 +165,7 @@ col3.metric(label="Scanned Stations", value=len(filtered_df))
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. MAP CREATION
+# 6. MAP CREATION
 # ==========================================
 m = folium.Map(location=[39.2, 35.6], zoom_start=6)
 marker_cluster = MarkerCluster().add_to(m)
@@ -189,15 +226,17 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
             route_coords.append(end_c)
             folium.Marker(end_c, tooltip="Destination", icon=folium.Icon(color="red", icon="flag")).add_to(m)
 
-        # Koordinatları birbirine bağlayan Navigasyon Çizgisini (PolyLine) Çek
+        real_road_path = get_real_road_route(route_coords)
+
+        # Koordinatları birbirine bağlayan Navigasyon Çizgisini Çek
         folium.PolyLine(
-            route_coords,
-            color="#FF9B9B", # Tatlı şeftali rengimizle uyumlu
-            weight=6,        # Çizgi kalınlığı
-            opacity=0.8      # Hafif transparanlık
+            real_road_path,  # route_coords yerine real_road_path verdik!
+            color="#FF9B9B", 
+            weight=6,        
+            opacity=0.8      
         ).add_to(m)
         
-        # Haritanın kamerasını çizilen bu rotaya (çizgiye) otomatik olarak zoomla ve ortala
+        # Haritanın kamerasını rotaya ortala
         m.fit_bounds([start_c, end_c])
         
     except Exception as e:

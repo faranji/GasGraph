@@ -1,21 +1,20 @@
 import ssl
-import geopy.geocoders
+import certifi
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
-
-# Mac'lerdeki SSL Sertifika doğrulama hatasını aşmak için güvenlik esnetmesi
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
-geopy.geocoders.options.default_ssl_context = ctx
 
 def get_coordinates(location_name: str) -> tuple:
     """
     Girilen şehir/ilçe ismini koordinatlara çevirir.
+    Mac SSL sorununu 'certifi' paketinin resmi sertifikalarıyla çözer.
     """
+    # İndirdiğimiz certifi paketindeki güvenilir sertifikaların yolunu gösteriyoruz
+    ctx = ssl.create_default_context(cafile=certifi.where())
+
     try:
-        locator = Nominatim(user_agent="gasgraph_app")
-        location = locator.geocode(location_name)
+        # Nominatim'e bu geçerli sertifikalarla bağlanmasını söylüyoruz
+        locator = Nominatim(user_agent="gasgraph_app", ssl_context=ctx)
+        location = locator.geocode(location_name, timeout=10)
 
         if location:
             return (location.latitude, location.longitude)
@@ -23,5 +22,5 @@ def get_coordinates(location_name: str) -> tuple:
             return (None, None)
         
     except GeocoderTimedOut:
-        print("timeout error")
+        print("timeout error.")
         return (None, None)

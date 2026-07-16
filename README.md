@@ -20,7 +20,7 @@ Crucially, **GasGraph operates independently of external black-box routing APIs*
 ## MVP Dashboard Preview
 
 <p align="center">
-  <img src="src/assets/mvpProduct.png" width="400" alt="GasGraph MVP Dashboard">
+  <img src="notebooks/mvpProduct.png" width="400" alt="GasGraph MVP Dashboard">
 </p>
 
 ---

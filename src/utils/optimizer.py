@@ -1,102 +1,107 @@
-import math
+import numpy as np
 import pandas as pd
+import requests
 
-def calculate_haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+def vectorized_haversine(lat1, lon1, lat2_array, lon2_array):
     """
-    İki koordinat arasındaki kuş uçuşu mesafeyi (KM) hesaplar.
+    NumPy Vektörizasyonu ile 1 noktanın, 10.000 noktaya olan mesafesini 
+    satır satır değil, matris hesabı ile saniyenin binde birinde hesaplar.
     """
-    # İPUCU: Dünyanın yarıçapı R = 6371 km'dir.
-    R = 6371
-    # TODO 1: Enlem ve boylamları math.radians() ile radyana çevir.
-    radian_lat1 = math.radians(lat1)
-    radian_lat2 = math.radians(lat2)
-    radian_lon1 = math.radians(lon1)
-    radian_lon2 = math.radians(lon2)
-
-    dlat = radian_lat2 - radian_lat1
-    dlon = radian_lon2 - radian_lon1
-
-    # TODO 2: Haversine formülünü uygula: a = sin²(Δlat/2) + cos(lat1)*cos(lat2)*sin²(Δlon/2)
-    a = (math.sin(dlat/2))**2 + (math.cos(radian_lat1))*(math.cos(radian_lat2))*(math.sin(dlon/2))**2
-
-    # TODO 3: c = 2 * atan2(√a, √(1−a)) hesapla.
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-                  
-    # TODO 4: Sonuç = R * c döndür.
-    return R*c
-    pass
-
-def calculate_station_cost(station_lat, station_lon, start_lat, start_lon, end_lat, end_lon, 
-                           has_wc, has_market, wc_bonus=5.0, market_bonus=3.0) -> float:
-    """
-    İstasyonun algoritma için "Maliyet" puanını hesaplar. Düşük maliyet = Daha iyi istasyon.
-    """
-    # TODO 1: start_lat, start_lon ile station_lat, station_lon arasındaki mesafeyi hesapla.
-    start_to_station = calculate_haversine(start_lat, start_lon, station_lat, station_lon)
-
-    # TODO 2: station_lat, station_lon ile end_lat, end_lon arasındaki mesafeyi hesapla.
-    station_to_end = calculate_haversine(station_lat, station_lon, end_lat, end_lon)
-
-    # TODO 3: start ile end arasındaki direkt mesafeyi hesapla (Sapmayı bulmak için).
-    di_route = calculate_haversine(start_lat, start_lon, end_lat, end_lon)
-
-    # TODO 4: Sapma (Detour) = (Start->Station) + (Station->End) - (Start->End)
-    detour = start_to_station + station_to_end - di_route
-
-    # TODO 5: Toplam Maliyet = Detour. Eğer has_wc True ise maliyetten wc_bonus'u çıkar. Market varsa market_bonus'u çıkar.
-    cost_val = detour
+    R = 6371.0 # Dünya yarıçapı
     
-    if has_wc:
-        cost_val -= wc_bonus
-    if has_market:
-        cost_val -= market_bonus
-        
-    return cost_val
-    pass
+    # Tüm dizileri radyana çevir
+    lat1, lon1 = np.radians(lat1), np.radians(lon1)
+    lat2, lon2 = np.radians(lat2_array), np.radians(lon2_array)
+    
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    
+    a = np.sin(dlat / 2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    
+    return R * c
 
-"""
-    while dist_to_destination > current_remaining_range:
-        for station in calculate_haversine(df_stations-current_loc) < current_remaining_range:
-            calculate_station_cost(station)
-"""
+def get_real_road_route(coords_list):
+    """
+    Kuş uçuşu koordinatları OSRM API'sine göndererek 
+    gerçek otoyol rotasını (virajlar, yollar) çıkarır.
+    """
+    # OSRM API 'boylam,enlem' formatında çalışır
+    waypoints = ";".join([f"{lon},{lat}" for lat, lon in coords_list])
+    url = f"http://router.project-osrm.org/route/v1/driving/{waypoints}?overview=full&geometries=geojson"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        if data.get("code") == "Ok":
+            # GeoJSON koordinatları [boylam, enlem] olarak döner, bunu [enlem, boylam] yaparız
+            route_geometry = data["routes"][0]["geometry"]["coordinates"]
+            return [(lat, lon) for lon, lat in route_geometry]
+    except Exception as e:
+        print(f"OSRM API Hatası: {e}")
+        
+    return coords_list # API çökerse yedek olarak düz çizgileri döndür
 
 def calculate_route(start_coords, end_coords, current_range, max_range, df_stations, wc_bonus=5.0, market_bonus=3.0):
     route_history = []
     current_loc = start_coords
     current_remaining_range = current_range
     
-    dist_to_destination = calculate_haversine(current_loc[0], current_loc[1], end_coords[0], end_coords[1])
+    # İndeksleri sıfırlayalım ki NumPy array'leri ile Pandas maskelemesi sorun yaratmasın
+    df_work = df_stations.copy().reset_index(drop=True)
     
-    while dist_to_destination > current_remaining_range:
-        # Mesafeleri hesapla
-        df_stations['dist_from_current'] = df_stations.apply(
-            lambda row: calculate_haversine(current_loc[0], current_loc[1], row['lat'], row['lon']), axis=1
-        )
+    dist_to_destination = vectorized_haversine(current_loc[0], current_loc[1], end_coords[0], end_coords[1])
+    
+    stops = 0
+    max_stops = 20 # Sonsuz döngü güvenlik kilidi
+    
+    TORTUOSITY_FACTOR = 1.3
+    
+    # WHILE ŞARTI GÜNCELLENDİ
+    while (dist_to_destination * TORTUOSITY_FACTOR) > current_remaining_range and stops < max_stops:
+        lats = df_work['lat'].values
+        lons = df_work['lon'].values
         
-        # Aday kümeyi filtrele
-        reachable_stations = df_stations[df_stations['dist_from_current'] <= current_remaining_range].copy()
+        # 1. HIZLI MESAFE HESABI (Saniyenin binde biri)
+        dists = vectorized_haversine(current_loc[0], current_loc[1], lats, lons)
         
-        if reachable_stations.empty:
-            break # Menzil içinde istasyon yoksa döngüyü kır
+        # 2. GERÇEK YOL ADAPTASYONU (Staj defteri detayı!)
+        # Kuş uçuşu mesafeler otoyollardan daha kısadır. 
+        # Araç yolda kalmasın diye menzili %20 daha kısa (0.80 margin) varsayarak pergel çiziyoruz.
+        safe_range = current_remaining_range * 0.80
+        
+        reachable_mask = dists <= safe_range
+        
+        if not reachable_mask.any():
+            raise ValueError("Menzil içinde uygun istasyon bulunamadı. Lütfen başlangıç menzilini artırın.")
             
-        # Maliyetleri hesapla
-        reachable_stations['cost'] = reachable_stations.apply(
-            lambda row: calculate_station_cost(
-                row['lat'], row['lon'], 
-                current_loc[0], current_loc[1], 
-                end_coords[0], end_coords[1], 
-                row['has_wc'], row['has_market'],
-                wc_bonus, market_bonus
-            ), axis=1
-        )
+        reachable_df = df_work[reachable_mask].copy()
         
-        # En düşük maliyetli (en iyi) istasyonu seç
-        best_station = reachable_stations.loc[reachable_stations['cost'].idxmin()]
+        # 3. HIZLI MALİYET HESABI
+        dists_to_station = dists[reachable_mask]
+        dists_to_end = vectorized_haversine(reachable_df['lat'].values, reachable_df['lon'].values, end_coords[0], end_coords[1])
         
-        # Geçmişe ekle ve durumu güncelle
+        # Sapma (Detour)
+        detour = dists_to_station + dists_to_end - dist_to_destination
+        
+        # Bonusları NumPy ile hızlıca düş
+        wc_discount = reachable_df['has_wc'].fillna(False).astype(int).values * wc_bonus
+        market_discount = reachable_df['has_market'].fillna(False).astype(int).values * market_bonus
+        
+        reachable_df['cost'] = detour - wc_discount - market_discount
+        
+        # 4. EN İYİ İSTASYONU SEÇ (A* Mantığı)
+        best_station = reachable_df.loc[reachable_df['cost'].idxmin()]
         route_history.append(best_station.to_dict())
+        
+        # 5. DURUMU GÜNCELLE VE İLERLE
         current_loc = (best_station['lat'], best_station['lon'])
         current_remaining_range = max_range
-        dist_to_destination = calculate_haversine(current_loc[0], current_loc[1], end_coords[0], end_coords[1])
+        dist_to_destination = vectorized_haversine(current_loc[0], current_loc[1], end_coords[0], end_coords[1])
+        stops += 1
+        
+        # Seçilen istasyonu bir daha seçmemek için havuzdan çıkar
+        df_work = df_work[df_work['id'] != best_station['id']].reset_index(drop=True)
         
     return route_history
