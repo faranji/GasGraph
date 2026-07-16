@@ -20,7 +20,7 @@ except ModuleNotFoundError:
     key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
 
-st.set_page_config(page_title="GasGraph Optimizer", layout="wide", initial_sidebar_state="expanded", page_icon=":noface:")
+st.set_page_config(page_title="GasGraph Optimizer", layout="wide", initial_sidebar_state="expanded", page_icon=":no_mouth:")
 
 # ==========================================
 # 0. SESSION STATE
@@ -55,7 +55,7 @@ df = load_gold_data()
 # ==========================================
 # 2. SIDEBAR & UI FORM
 # ==========================================
-col1, col_logo, col2 = st.sidebar.columns([1, 8, 1]) 
+col1, col_logo, col2 = st.sidebar.columns([0.5, 8, 0.5]) 
 with col_logo:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     logo_path = os.path.join(current_dir, "assets", "gasgraph_logo.png")
