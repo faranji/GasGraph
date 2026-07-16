@@ -1,11 +1,11 @@
 # SRO (Spatial Route Optimizer): Advanced Spatial Routing & Range Optimization Engine
-[![Live Dashboard](https://img.shields.io/badge/LIVE_DASHBOARD-1E1E1E?style=for-the-badge&logo=streamlit&logoColor=white)](https://gasgraph-ws9tmhabavrjwnxypbv7hi.streamlit.app/)
+[![Live Dashboard](https://img.shields.io/badge/LIVE_DASHBOARD-1E1E1E?style=for-the-badge&logo=streamlit&logoColor=white)](https://spatial-route-optimizer-aeitgirijt7dgchpkild5p.streamlit.app/)
 
 **SRO** is an advanced spatial routing and analytics platform designed to solve "range anxiety" for both Electric Vehicles (EVs) and traditional combustion engine vehicles during long-distance transit. By synthesizing concepts from **Data Engineering, Operations Research (OR), and Mathematical Optimization**, SRO calculates the most efficient refueling and recharging paths across major networks in Turkey (e.g., Shell, Opet, Trugo, ZES) with minimal cost, distance, and detour overhead.
 
 ---
 
-## 🚀 Key Features & Architectural Core
+## Key Features & Architectural Core
 
 1. **Interactive Spatial Dashboard:** A stream-reactive frontend built with **Streamlit** and **Folium** utilizing `MarkerCluster` algorithms to visualize target routes, nodes, and spatial proximity parameters across 7,200+ data points.
 2. **Vectorized Mathematical Engine & OSRM Integration:** Replaced inefficient procedural iterations with **NumPy Vectorization** for high-performance, matrix-level distance calculations. The engine integrates the **Open Source Routing Machine (OSRM) API** to generate exact real-world highway polylines, applying a mathematical *Tortuosity Factor* to account for actual road curvature.
@@ -30,7 +30,7 @@
 - **Data Processing & Pipeline:** Python 3.13, NumPy, Pandas, Supabase-py client
 - **Database Engine:** Supabase (PostgreSQL 15+)
 - **External APIs:** OSRM (Open Source Routing Machine), Nominatim Geocoder
-- **Visualization & UI:** Streamlit, Streamlit-Folium
+- **Visualization & UI:** Streamlit, Folium
 
 ---
 
