@@ -40,7 +40,7 @@ def load_gold_data():
     chunk_size = 1000
     
     while True:
-        response = supabase.table("gasgraph_gold_stations").select("*").range(offset, offset + chunk_size - 1).execute()
+        response = supabase.table("sro_gold_stations").select("*").range(offset, offset + chunk_size - 1).execute()
         chunk = response.data
         if not chunk:
             break
