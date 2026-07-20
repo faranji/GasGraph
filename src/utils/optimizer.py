@@ -38,7 +38,7 @@ def get_real_road_route(coords_list):
         
     return coords_list # API çökerse yedek olarak düz çizgileri döndür
 
-def calculate_route(start_coords, end_coords, current_range, max_range, df_stations, wc_bonus=5.0, market_bonus=3.0):
+def calculate_route(start_coords, end_coords, current_range, max_range, df_stations, wc_bonus=5.0, market_bonus=3.0, tortuosity=1.3, force_forward=False):
     route_history = []
     current_loc = start_coords
     current_remaining_range = current_range
@@ -51,9 +51,7 @@ def calculate_route(start_coords, end_coords, current_range, max_range, df_stati
     stops = 0
     max_stops = 20 # infinite loop
     
-    TORTUOSITY_FACTOR = 1.3
-    
-    while (dist_to_destination * TORTUOSITY_FACTOR) > current_remaining_range and stops < max_stops:
+    while (dist_to_destination * tortuosity) > current_remaining_range and stops < max_stops:
         lats = df_work['lat'].values
         lons = df_work['lon'].values
         
@@ -66,6 +64,12 @@ def calculate_route(start_coords, end_coords, current_range, max_range, df_stati
             raise ValueError("Menzil içinde uygun istasyon bulunamadı. Lütfen başlangıç menzilini artırın.")
             
         reachable_df = df_work[reachable_mask].copy()
+
+        if force_forward:
+            # if we are going back
+            backward_mask = dists_to_end > dist_to_destination
+            # add 10.000km penalty
+            reachable_df.loc[backward_mask, 'cost'] += 10000.0
         
         dists_to_station = dists[reachable_mask]
         dists_to_end = vectorized_haversine(reachable_df['lat'].values, reachable_df['lon'].values, end_coords[0], end_coords[1])

@@ -62,13 +62,33 @@ with col_logo:
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
 
-with st.sidebar.form(key="route_setup_form"):
-    st.title("Route Setup")
-    start_loc = st.text_input("Start Location", value=st.session_state.current_location)
-    end_loc = st.text_input("Destination", value="Ankara")
+st.sidebar.title("Route Setup")
 
-    st.divider()
-    
+# ARAMA KISMI FORMDAN ÇIKARILDI (Kullanıcı yazdıkça anında arama yapsın diye)
+search_start = st.sidebar.text_input("Start Location Search", value=st.session_state.current_location)
+start_options = get_coordinates(search_start) if search_start else {}
+
+if start_options:
+    selected_start_name = st.sidebar.selectbox("Confirm Start Location:", list(start_options.keys()))
+    start_coords_final = start_options[selected_start_name]
+else:
+    st.sidebar.warning("Start location not found.")
+    start_coords_final = None
+
+search_end = st.sidebar.text_input("Destination Search", value="Ankara")
+end_options = get_coordinates(search_end) if search_end else {}
+
+if end_options:
+    selected_end_name = st.sidebar.selectbox("Confirm Destination:", list(end_options.keys()))
+    end_coords_final = end_options[selected_end_name]
+else:
+    st.sidebar.warning("Destination not found.")
+    end_coords_final = None
+
+st.sidebar.divider()
+
+# ARAÇ VE DİĞER AYARLAR FORM İÇİNDE KALMAYA DEVAM EDİYOR
+with st.sidebar.form(key="route_setup_form"):
     st.title("Vehicle & Capacity")
     engine_type = st.selectbox("Vehicle Type", ["Combustion (Fuel)", "Electric (EV)"])
     
@@ -99,8 +119,8 @@ with st.sidebar.form(key="route_setup_form"):
         submit_button = st.form_submit_button(label="Optimize Route", use_container_width=True)
 
 with st.sidebar.expander("Advanced Settings"):
-    st.slider("Tortuosity Factor (Road Curvature)", min_value=1.0, max_value=1.5, value=1.3, step=0.1)
-    st.checkbox("Show EV Stations Only", value=False)
+    user_tortuosity = st.slider("Tortuosity Factor (Road Curvature)", min_value=1.0, max_value=1.5, value=1.3, step=0.1)
+    force_forward = st.checkbox("Force Forward Progress (Directional Penalty)", value=False)
 
 # ==========================================
 # 3. FILTERING THE DATA 
@@ -124,10 +144,8 @@ if submit_button:
     st.session_state.remaining_range = current_range 
     
     with st.spinner("🗺️ Calculating coordinates and optimizing route..."): 
-        start_coords = get_coordinates(start_loc)
-        end_coords = get_coordinates(end_loc)
         
-        if start_coords == (None, None) or end_coords == (None, None):
+        if start_coords_final is None or end_coords_final is None:
             st.error("City not found. Please enter a valid location name.")
         else:
             try:
@@ -141,7 +159,9 @@ if submit_button:
                     max_range=max_range,
                     df_stations=filtered_df,
                     wc_bonus=w_bonus,
-                    market_bonus=m_bonus
+                    market_bonus=m_bonus,
+                    tortuosity=user_tortuosity,
+                    force_forward=force_forward
                 )
                 
                 st.success(f"Route generated successfully with {len(optimized_route)} stops!")
@@ -201,8 +221,8 @@ for idx, row in filtered_df.iterrows():
 if "optimized_route" in st.session_state and st.session_state.optimized_route:
     route_coords = []
     try:
-        start_c = get_coordinates(start_loc)
-        end_c = get_coordinates(end_loc)
+        start_c = st.session_state.final_start
+        end_c = st.session_state.final_end
         
         if start_c != (None, None):
             route_coords.append(start_c)

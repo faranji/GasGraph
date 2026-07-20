@@ -13,13 +13,13 @@ def get_coordinates(location_name: str) -> tuple:
 
     try:
         locator = Nominatim(user_agent="spatial_route_optimizer", ssl_context=ctx)
-        location = locator.geocode(location_name, timeout=10)
+        location = locator.geocode(location_name, exactly_one=False, limit=5, timeout=10)
 
         if location:
-            return (location.latitude, location.longitude)
+            return {loc.address: (loc.latitude, loc.longitude) for loc in location}
         else:
-            return (None, None)
+            return {}
         
     except GeocoderTimedOut:
         print("timeout error.")
-        return (None, None)
+        return {}
