@@ -111,13 +111,6 @@ with st.sidebar:
         placeholder="Start typing... (e.g., Istanbul)"
     )
 
-    st.markdown("**Final Destination**")
-    end_coords_final = st_searchbox(
-        search_for_dropdown,
-        key="end_searchbox",
-        placeholder="Start typing... (e.g., Ankara)"
-    )
-
     waypoint_coords_list = []
     for i in range(st.session_state.waypoint_count):
         st.markdown(f"**🛑 Stopover {i+1}**")
@@ -128,6 +121,14 @@ with st.sidebar:
         )
         if wp_coords:
             waypoint_coords_list.append(wp_coords)
+
+    st.markdown("**Final Destination**")
+    end_coords_final = st_searchbox(
+        search_for_dropdown,
+        key="end_searchbox",
+        placeholder="Start typing... (e.g., Ankara)"
+    )
+
 
     col_add, col_clear = st.columns(2)
     with col_add:
