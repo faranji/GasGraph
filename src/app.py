@@ -24,6 +24,26 @@ except ModuleNotFoundError:
 st.set_page_config(page_title="SRO | Spatial Route Optimizer", layout="wide", initial_sidebar_state="expanded", page_icon="📍")
 
 # ==========================================
+# CUSTOM CSS
+# ==========================================
+st.markdown("""
+    <style>
+        /* Google Fonts'tan Poppins fontunu çekiyoruz */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        /* Streamlit'in tüm ana metinlerine bu fontu zorluyoruz */
+        html, body, [class*="css"], [class*="st-"] {
+            font-family: 'Poppins', sans-serif !important;
+        }
+        
+        /* Başlıkların daha zarif durması için ufak bir dokunuş */
+        h1, h2, h3 {
+            font-weight: 600 !important;
+            color: #2C3E50 !important; /* Çok sert olmayan, tatlı bir lacivert/gri */
+        }
+    </style>
+""", unsafe_allow_html=True)
+# ==========================================
 # 0. SESSION STATE
 # ==========================================
 if "remaining_range" not in st.session_state:
@@ -76,13 +96,20 @@ def search_for_dropdown(searchterm: str):
     return []
 
 with st.sidebar:
-    st.subheader("📍 Route Setup")
+    st.subheader("Route Setup")
     
     st.markdown("**Start Location**")
     start_coords_final = st_searchbox(
         search_for_dropdown,
         key="start_searchbox",
         placeholder="Start typing... (e.g., Istanbul)"
+    )
+
+    st.markdown("**Final Destination**")
+    end_coords_final = st_searchbox(
+        search_for_dropdown,
+        key="end_searchbox",
+        placeholder="Start typing... (e.g., Ankara)"
     )
 
     waypoint_coords_list = []
@@ -96,30 +123,23 @@ with st.sidebar:
         if wp_coords:
             waypoint_coords_list.append(wp_coords)
 
-    # Butonları daha şık ve yan yana konumlandırma
     col_add, col_clear = st.columns(2)
     with col_add:
         if st.button("➕ Add Stop", use_container_width=True):
             st.session_state.waypoint_count += 1
             st.rerun()
     with col_clear:
-        if st.button("🗑️ Clear Stops", use_container_width=True) and st.session_state.waypoint_count > 0:
+        if st.button("Clear Stops", use_container_width=True) and st.session_state.waypoint_count > 0:
             st.session_state.waypoint_count = 0
             st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    st.markdown("**🚩 Final Destination**")
-    end_coords_final = st_searchbox(
-        search_for_dropdown,
-        key="end_searchbox",
-        placeholder="Start typing... (e.g., Ankara)"
-    )
 
 st.sidebar.markdown("---") # st.divider() yerine daha ince bir çizgi
 
 with st.sidebar.form(key="route_setup_form"):
-    st.subheader("🚗 Vehicle & Capacity")
+    st.subheader("Vehicle & Capacity")
     engine_type = st.selectbox("Vehicle Type", ["Combustion (Fuel)", "Electric (EV)"])
     
     col_range1, col_range2 = st.columns(2)
@@ -130,7 +150,7 @@ with st.sidebar.form(key="route_setup_form"):
 
     st.markdown("---")
     
-    st.subheader("⚙️ Preferences")
+    st.subheader("Preferences")
     raw_brands = sorted(df['provider'].dropna().unique().tolist())
     brand_options = ["All Brands"] + raw_brands
     
@@ -149,7 +169,7 @@ with st.sidebar.form(key="route_setup_form"):
     
     submit_button = st.form_submit_button(label="🚀 Optimize Route", use_container_width=True)
 
-with st.sidebar.expander("🛠️ Advanced Settings"):
+with st.sidebar.expander("Advanced Settings"):
     user_tortuosity = st.slider("Tortuosity Factor (Road Curvature)", min_value=1.0, max_value=1.5, value=1.3, step=0.1)
     force_forward = st.checkbox("Force Forward Progress", value=False)
 
@@ -206,9 +226,9 @@ if submit_button:
 # 5. MAIN DASHBOARD UI (Dinamik Metrikler)
 # ==========================================
 col1, col2, col3 = st.columns(3)
-col1.metric(label="🛣️ Distance to Destination", value="~450 KM", delta_color="inverse")
-col2.metric(label="🔋 Current Range", value=f"{st.session_state.remaining_range} KM", delta_color="inverse")
-col3.metric(label="⛽ Scanned Stations", value=len(filtered_df), delta_color="off")
+col1.metric(label="Distance to Destination", value="~450 KM", delta_color="inverse")
+col2.metric(label="Current Range", value=f"{st.session_state.remaining_range} KM", delta_color="inverse")
+col3.metric(label="Scanned Stations", value=len(filtered_df), delta_color="off")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
