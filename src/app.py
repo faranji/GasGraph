@@ -82,21 +82,22 @@ def search_for_dropdown(searchterm: str):
         return [(address, coords) for address, coords in results.items()]
     return []
 
-st.sidebar.markdown("**📍 Start Location**")
-start_coords_final = st_searchbox(
-    search_for_dropdown,
-    key="start_searchbox",
-    placeholder="Start typing... (e.g., Istanbul)"
-)
+with st.sidebar:
+    st.sidebar.markdown("**📍 Start Location**")
+    start_coords_final = st_searchbox(
+        search_for_dropdown,
+        key="start_searchbox",
+        placeholder="Start typing... (e.g., Istanbul)"
+    )
 
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+    st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-st.sidebar.markdown("**🚩 Destination**")
-end_coords_final = st_searchbox(
-    search_for_dropdown,
-    key="end_searchbox",
-    placeholder="Start typing... (e.g., Ankara)"
-)
+    st.sidebar.markdown("**🚩 Destination**")
+    end_coords_final = st_searchbox(
+        search_for_dropdown,
+        key="end_searchbox",
+        placeholder="Start typing... (e.g., Ankara)"
+    )
 
 st.sidebar.divider()
 
