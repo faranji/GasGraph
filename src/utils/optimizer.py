@@ -3,26 +3,38 @@ import pandas as pd
 import requests
 
 def vectorized_haversine(lat1, lon1, lat2_array, lon2_array):
-    R = 6371.0
+    """
+    NumPy Vektörizasyonu ile 1 noktanın, 10.000 noktaya olan mesafesini 
+    satır satır değil, matris hesabı ile saniyenin binde birinde hesaplar.
+    """
+    R = 6371.0 # Dünya yarıçapı
+    
     lat1, lon1 = np.radians(lat1), np.radians(lon1)
     lat2, lon2 = np.radians(lat2_array), np.radians(lon2_array)
+    
     dlat = lat2 - lat1
     dlon = lon2 - lon1
+    
     a = np.sin(dlat / 2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0)**2
     c = 2 * np.arcsin(np.sqrt(a))
+    
     return R * c
 
 def get_real_road_route(coords_list):
+    """Koordinatları OSRM API'ına gönderip gerçek virajları ortaya çıkarır."""
     waypoints = ";".join([f"{lon},{lat}" for lat, lon in coords_list])
     url = f"http://router.project-osrm.org/route/v1/driving/{waypoints}?overview=full&geometries=geojson"
+    
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
+        
         if data.get("code") == "Ok":
             route_geometry = data["routes"][0]["geometry"]["coordinates"]
             return [(lat, lon) for lon, lat in route_geometry]
     except Exception as e:
         print(f"OSRM API Hatası: {e}")
+        
     return coords_list
 
 def calculate_route(start_coords, end_coords, current_range, max_range, df_stations, wc_bonus=5.0, market_bonus=3.0, tortuosity=1.3, force_forward=False):
@@ -47,7 +59,6 @@ def calculate_route(start_coords, end_coords, current_range, max_range, df_stati
             
         reachable_df = df_work[reachable_mask].copy()
 
-        # DÜZELTME 1: dists_to_end artık force_forward kontrolünden ÖNCE hesaplanıyor!
         dists_to_station = dists[reachable_mask]
         dists_to_end = vectorized_haversine(reachable_df['lat'].values, reachable_df['lon'].values, end_coords[0], end_coords[1])
         
@@ -61,11 +72,9 @@ def calculate_route(start_coords, end_coords, current_range, max_range, df_stati
         
         reachable_df['cost'] = detour - wc_discount - market_discount
         
-        # HITL İçin En İyi 3 İstasyon Seçimi
         top_3_stations = reachable_df.nsmallest(3, 'cost')
         route_history.append(top_3_stations.to_dict('records'))
         
-        # DÜZELTME 2: Döngünün hedefi bulmaya devam edebilmesi için serinin 1. elemanını (en iyisini) seçip devam ediyoruz
         best_station = top_3_stations.iloc[0] 
         current_loc = (best_station['lat'], best_station['lon'])
         current_remaining_range = max_range
@@ -76,8 +85,11 @@ def calculate_route(start_coords, end_coords, current_range, max_range, df_stati
         
     return route_history
 
-
 def calculate_multi_waypoint_route(waypoints_list, current_range, max_range, df_stations, **kwargs):
+    """
+    Kullanıcının girdiği sıralı rotayı (Örn: İstanbul -> Kalkan -> Kaş) bacaklara böler.
+    Her bacak için calculate_route fonksiyonunu ardışık (recursive) olarak çalıştırır.
+    """
     full_trip_stops = []
     simulated_range = current_range
     
