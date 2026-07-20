@@ -31,18 +31,25 @@ st.markdown("""
         /* Google Fonts'tan Poppins fontunu çekiyoruz */
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-        /* Streamlit'in tüm ana metinlerine bu fontu zorluyoruz */
-        html, body, [class*="css"], [class*="st-"] {
-            font-family: 'Poppins', sans-serif !important;
+        /* Sadece metin içeren ana yapıları hedefliyoruz, her şeye zorlamıyoruz */
+        html, body, p, div, span, label {
+            font-family: 'Poppins', sans-serif;
         }
         
         /* Başlıkların daha zarif durması için ufak bir dokunuş */
         h1, h2, h3 {
+            font-family: 'Poppins', sans-serif !important;
             font-weight: 600 !important;
-            color: #2C3E50 !important; /* Çok sert olmayan, tatlı bir lacivert/gri */
+            color: #2C3E50 !important;
+        }
+        
+        /* Streamlit'in kendi ikonlarının (oklar, menü butonları) bozulmasını engelliyoruz */
+        .material-icons, [class*="icon"], [data-testid="stIconMaterial"] {
+            font-family: 'Material Symbols Rounded' !important;
         }
     </style>
 """, unsafe_allow_html=True)
+
 # ==========================================
 # 0. SESSION STATE
 # ==========================================
