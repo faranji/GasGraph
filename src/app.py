@@ -85,7 +85,7 @@ df = load_gold_data()
 # ==========================================
 # 2. SIDEBAR & UI FORM (MULTI-WAYPOINT)
 # ==========================================
-col1, col_logo, col2 = st.sidebar.columns([1, 6, 1]) 
+col1, col_logo, col2 = st.sidebar.columns([1, 4, 1]) 
 with col_logo:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     logo_path = os.path.join(current_dir, "assets", "gasgraph_logo.png")
