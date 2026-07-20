@@ -96,7 +96,6 @@ def search_for_dropdown(searchterm: str):
     return []
 
 with st.sidebar:
-    st.subheader("Route Setup")
     
     st.markdown("**Start Location**")
     start_coords_final = st_searchbox(
@@ -167,7 +166,7 @@ with st.sidebar.form(key="route_setup_form"):
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    submit_button = st.form_submit_button(label="🚀 Optimize Route", use_container_width=True)
+    submit_button = st.form_submit_button(label="Optimize Route", use_container_width=True)
 
 with st.sidebar.expander("Advanced Settings"):
     user_tortuosity = st.slider("Tortuosity Factor (Road Curvature)", min_value=1.0, max_value=1.5, value=1.3, step=0.1)
@@ -225,8 +224,35 @@ if submit_button:
 # ==========================================
 # 5. MAIN DASHBOARD UI (Dinamik Metrikler)
 # ==========================================
+# ==========================================
+# 5. MAIN DASHBOARD UI (Dinamik Metrikler)
+# ==========================================
+import math
+
+def calculate_total_distance(coords_list):
+    """Kuş uçuşu (Haversine) mesafelerin toplamını hesaplar."""
+    total_dist = 0.0
+    for i in range(len(coords_list) - 1):
+        lat1, lon1 = coords_list[i]
+        lat2, lon2 = coords_list[i+1]
+        R = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        total_dist += R * c
+    return total_dist
+
+# Rota hesaplanmışsa dinamik mesafeyi bul, yoksa varsayılan değer göster
+display_distance = "-- KM"
+if "full_waypoints" in st.session_state and st.session_state.full_waypoints:
+    raw_dist = calculate_total_distance(st.session_state.full_waypoints)
+    # Yolun viraj payını (Tortuosity Factor) hesaba katarak gerçeğe en yakın mesafeyi buluyoruz
+    final_dist = int(raw_dist * user_tortuosity)
+    display_distance = f"~{final_dist} KM"
+
 col1, col2, col3 = st.columns(3)
-col1.metric(label="Distance to Destination", value="~450 KM", delta_color="inverse")
+col1.metric(label="Distance to Destination", value=display_distance, delta_color="inverse")
 col2.metric(label="Current Range", value=f"{st.session_state.remaining_range} KM", delta_color="inverse")
 col3.metric(label="Scanned Stations", value=len(filtered_df), delta_color="off")
 

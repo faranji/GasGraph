@@ -1,7 +1,6 @@
 import googlemaps
 import streamlit as st
 
-# Streamlit secrets üzerinden API anahtarını güvenli bir şekilde alıyoruz
 try:
     API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
     gmaps = googlemaps.Client(key=API_KEY)
