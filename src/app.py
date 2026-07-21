@@ -21,12 +21,10 @@ if str(CURRENT_DIR) not in sys.path:
 from utils.geocoder import get_coordinates
 from utils.optimizer import calculate_multi_waypoint_route
 
-try:
-    from config import supabase
-except ModuleNotFoundError:
-    supabase_url = st.secrets["SUPABASE_URL"]
-    supabase_key = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(supabase_url, supabase_key)
+
+supabase_url = st.secrets["SUPABASE_URL"]
+supabase_key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(supabase_url, supabase_key)
 
 
 st.set_page_config(
