@@ -143,7 +143,8 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
 
 
-st.sidebar.markdown("---") # st.divider() yerine daha ince bir çizgi
+st.sidebar.markdown("---")
+"""
 if st.button("🔍 Google API Test Et", use_container_width=True):
         try:
             import googlemaps
@@ -154,7 +155,7 @@ if st.button("🔍 Google API Test Et", use_container_width=True):
             st.write(sonuc)
         except Exception as e:
             st.error(f"HATA DETAYI: {e}")
-
+"""
 with st.sidebar.form(key="route_setup_form"):
     st.subheader("Vehicle & Capacity")
     engine_type = st.selectbox("Vehicle Type", ["Combustion (Fuel)", "Electric (EV)"])

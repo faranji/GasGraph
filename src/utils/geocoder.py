@@ -17,12 +17,10 @@ def get_coordinates(location_name: str) -> dict:
         return {}
         
     try:
-        # components={"country": "TR"} ile aramayı sadece Türkiye'ye kilitliyoruz
         geocode_result = gmaps.geocode(location_name, components={"country": "TR"})
         
         results = {}
         
-        # Gelen en iyi 5 sonucu al ve SRO'nun anlayacağı sözlük formatına çevir
         for place in geocode_result[:5]:
             tam_adres = place['formatted_address']
             lat = place['geometry']['location']['lat']
