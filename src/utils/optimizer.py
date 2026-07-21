@@ -70,6 +70,7 @@ def calculate_route(start_coords, end_coords, current_range, max_range, df_stati
         wc_discount = reachable_df['has_wc'].fillna(False).astype(int).values * wc_bonus
         market_discount = reachable_df['has_market'].fillna(False).astype(int).values * market_bonus
         
+        reachable_df['detour'] = detour
         reachable_df['cost'] = detour - wc_discount - market_discount
         
         top_3_stations = reachable_df.nsmallest(3, 'cost')

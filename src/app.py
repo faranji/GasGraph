@@ -285,18 +285,23 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
     st.subheader("Station Selection (Human-in-the-Loop)")
     st.write("Algorithm generated top options based on cost, distance, and amenities. Select your preferred stations.")
     
-    # Kullanıcı seçimlerini session_state içinde tutuyoruz
     if "user_selections" not in st.session_state:
         st.session_state.user_selections = {}
         
     for stop_idx, candidates in enumerate(st.session_state.optimized_route):
         st.markdown(f"**Required Stop {stop_idx + 1}**")
         
+
         options = []
         for c in candidates:
             wc_tag = " | WC" if c.get('has_wc') else ""
             mkt_tag = " | Market" if c.get('has_market') else ""
-            options.append(f"{c['provider']}{wc_tag}{mkt_tag} (Score: {c['cost']:.1f})")
+            
+            # Algoritmadan gelen uzama miktarını çekiyoruz
+            ekstra_km = c.get('detour', 0.0)
+            
+            # Kurumsal kullanıcının anlayacağı dilde net bir metin formatı
+            options.append(f"{c['provider']}{wc_tag}{mkt_tag} (+{ekstra_km:.1f} KM Uzama)")
             
         current_choice = st.session_state.user_selections.get(stop_idx, 0)
         if current_choice >= len(options):
@@ -360,6 +365,7 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
     try:
         user_waypoints = st.session_state.full_waypoints
         
+        # 1. Ana durakları (Start, Waypoint, End) ekle
         for idx, wp in enumerate(user_waypoints):
             route_coords.append(wp)
             if idx == 0:
@@ -369,15 +375,10 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
             else:
                 folium.Marker(wp, tooltip=f"Waypoint {idx}", icon=folium.Icon(color="purple", icon="info-sign")).add_to(m)
             
+        # 2. Seçilen yakıt istasyonlarını ekle (Çift marker hatası düzeltildi)
         for best_stop in final_selected_stops:
             stop_coord = (best_stop['lat'], best_stop['lon'])
             route_coords.append(stop_coord)
-            
-            folium.Marker(
-                stop_coord, 
-                tooltip=f"OPTIMAL STOP: {best_stop['provider']}", 
-                icon=folium.Icon(color="orange", icon="star", prefix="fa")
-            ).add_to(m)
             
             folium.Marker(
                 stop_coord, 
@@ -385,11 +386,24 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
                 icon=folium.Icon(color="orange", icon="star", prefix="fa")
             ).add_to(m)
 
+        # 3. TOPOLOGICAL SORTING (Geriye Dönüş Hatasını Çözen Kısım - EKLENDİ)
+        dest_coord = user_waypoints[-1] 
+        start_coord = route_coords[0]
+        middle_coords = route_coords[1:]
+        
+        middle_coords.sort(
+            key=lambda x: math.sqrt((x[0] - dest_coord[0])**2 + (x[1] - dest_coord[1])**2), 
+            reverse=True
+        )
+        
+        route_coords = [start_coord] + middle_coords
+
+        # 4. Doğru sıraya dizilmiş rotayı OSRM'e gönder
         real_road_path = get_real_road_route(route_coords)
 
         folium.PolyLine(
             real_road_path, 
-            color="#1E88E5", # PROFESYONEL MAVİ ÇİZGİ
+            color="#1E88E5", 
             weight=5,        
             opacity=0.8      
         ).add_to(m)
