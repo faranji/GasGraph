@@ -68,7 +68,6 @@ def vectorized_haversine(
     lat2_array: Any,
     lon2_array: Any,
 ) -> np.ndarray:
-    """Bir noktadan çok sayıda noktaya kuş uçuşu mesafeyi KM olarak hesaplar."""
     earth_radius_km = 6371.0
 
     lat1_rad = np.radians(np.asarray(lat1, dtype=float))
