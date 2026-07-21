@@ -576,7 +576,7 @@ elif route_plan:
 
 
 # ==========================================
-# MAP
+# MAP (ULTRA OPTIMIZED FOR CLOUD)
 # ==========================================
 map_center = [39.0, 35.0]
 map_zoom = 6
@@ -592,52 +592,82 @@ route_map = folium.Map(
     tiles="CartoDB positron",
 )
 
-marker_cluster = MarkerCluster().add_to(route_map)
-
-map_station_df = filtered_df
-if route_request:
-    map_station_df = build_filtered_stations(
-        source_df=df,
-        station_type=route_request["station_type"],
-        selected_brand=route_request["selected_brand"],
-        strict_requirement=route_request["strict_requirement"],
-    )
-
+# Klasördeki ikonları hafızaya al
 assets_dir = CURRENT_DIR / "assets"
 available_icons = {p.stem for p in assets_dir.glob("*.png")} if assets_dir.exists() else set()
 
-display_map_df = map_station_df if route_plan else map_station_df.head(300)
+# SADECE ROTA HESAPLANDIYSA HARİTAYI DOLDUR (Boşken 0 marker = Anında açılış)
+if route_plan and route_request:
+    user_waypoints = route_request["waypoints"]
+
+    # 1. Başlangıç, Bitiş ve Ara Durakları Çiz
+    for waypoint_index, waypoint in enumerate(user_waypoints):
+        if waypoint_index == 0:
+            tooltip = "Start Location"
+            icon = folium.Icon(color="green", icon="play")
+        elif waypoint_index == len(user_waypoints) - 1:
+            tooltip = "Final Destination"
+            icon = folium.Icon(color="red", icon="flag")
+        else:
+            tooltip = f"User Stopover {waypoint_index}"
+            icon = folium.Icon(color="purple", icon="info-sign")
+
+        folium.Marker(
+            location=waypoint,
+            tooltip=tooltip,
+            icon=icon,
+        ).add_to(route_map)
+
+    for stop_index, candidates in enumerate(route_plan.get("candidate_groups", [])):
+        
+        # Kullanıcının radyodan seçtiği index'i al (Yoksa varsayılan 0)
+        selected_idx = st.session_state.get(f"radio_stop_{stop_index}", 0)
+        
+        for option_idx, candidate in enumerate(candidates):
+            provider_raw = str(candidate.get("provider") or "Unknown")
+            image_name = provider_raw.replace(" ", "_")
+            provider_formatted = format_station_name(candidate)
+            
+            is_selected = (option_idx == selected_idx)
+
+            # Seçili olana belirgin YILDIZ, alternatiflere kendi logoları
+            if is_selected:
+                marker_icon = folium.Icon(color="orange", icon="star", prefix="fa")
+                tooltip_text = f"⭐ SELECTED: {provider_formatted}"
+            else:
+                if image_name in available_icons:
+                    icon_file_path = assets_dir / f"{image_name}.png"
+                    marker_icon = folium.CustomIcon(str(icon_file_path), icon_size=(30, 30))
+                else:
+                    marker_icon = folium.Icon(color="lightgray", icon="info-sign")
+                tooltip_text = f"Alternative Option: {provider_formatted}"
+
+            folium.Marker(
+                location=[float(candidate["lat"]), float(candidate["lon"])],
+                tooltip=tooltip_text,
+                icon=marker_icon,
+            ).add_to(route_map)
+
+    road_geometry = route_plan.get("road_geometry", [])
+    if road_geometry:
+        folium.PolyLine(
+            road_geometry,
+            color="#1E88E5",
+            weight=5,
+            opacity=0.85,
+        ).add_to(route_map)
+
+    route_bounds = [
+        [float(lat), float(lon)]
+        for lat, lon in route_plan.get("route_coords", [])
+    ]
+    if route_bounds:
+        route_map.fit_bounds(route_bounds, padding=(30, 30))
 
 
-for _, row in display_map_df.iterrows():
-    provider = str(row.get("provider") or "Unknown")
-    image_name = provider.replace(" ", "_")
-
-    tooltip_text = (
-        f"<b>{provider}</b><br>"
-        f"Type: {str(row.get('station_type', '')).upper()}"
-    )
-    has_wc_value = row.get("has_wc")
-    has_market_value = row.get("has_market")
-    if pd.notna(has_wc_value) and bool(has_wc_value):
-        tooltip_text += "<br>WC: Available"
-    if pd.notna(has_market_value) and bool(has_market_value):
-        tooltip_text += "<br>Market: Available"
-
-    if image_name in available_icons:
-        icon_file_path = assets_dir / f"{image_name}.png"
-        station_icon = folium.CustomIcon(
-            str(icon_file_path),
-            icon_size=(35, 35),
-        )
-    else:
-        station_icon = folium.Icon(
-            color="blue" if row.get("station_type") == "ev" else "lightgray",
-            icon="info-sign",
-        )
-
-    folium.Marker(
-        location=[float(row["lat"]), float(row["lon"])],
-        tooltip=tooltip_text,
-        icon=station_icon,
-    ).add_to(marker_cluster)
+st_folium(
+    route_map,
+    width="100%",
+    height=600,
+    returned_objects=[],
+)
