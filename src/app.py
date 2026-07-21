@@ -603,10 +603,15 @@ if route_request:
         strict_requirement=route_request["strict_requirement"],
     )
 
+assets_dir = CURRENT_DIR / "assets"
+available_icons = {p.stem for p in assets_dir.glob("*.png")} if assets_dir.exists() else set()
+
+
+display_map_df = map_station_df if route_plan else map_station_df.head(300)
+
 for _, row in map_station_df.iterrows():
     provider = str(row.get("provider") or "Unknown")
     image_name = provider.replace(" ", "_")
-    icon_path = CURRENT_DIR / "assets" / f"{image_name}.png"
 
     tooltip_text = (
         f"<b>{provider}</b><br>"

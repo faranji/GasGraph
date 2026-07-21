@@ -9,10 +9,6 @@ except Exception as e:
     gmaps = None
 
 def get_coordinates(location_name: str) -> dict:
-    """
-    Girilen metni Google Maps Geocoding API kullanarak koordinatlara çevirir.
-    Hatalı yazımları düzeltir ve sadece Türkiye'deki sonuçları getirir.
-    """
     if not gmaps:
         return {}
         
@@ -31,5 +27,5 @@ def get_coordinates(location_name: str) -> dict:
         return results
         
     except Exception as e:
-        print(f"Google Maps Hatası: {e}")
+        print(f"Google Maps Error: {e}")
         return {}

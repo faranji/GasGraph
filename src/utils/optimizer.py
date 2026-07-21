@@ -14,15 +14,15 @@ OSRM_HEADERS = {
 
 
 def _normalize_coordinate(coords: Sequence[float]) -> Coordinate:
-    """Koordinatı güvenli biçimde (lat, lon) tuple'ına dönüştürür."""
+    """convert coordinates to (lat, lon) tuple."""
     if coords is None or len(coords) != 2:
-        raise ValueError("Koordinat (lat, lon) biçiminde olmalıdır.")
+        raise ValueError("wrong coord type.")
 
     lat = float(coords[0])
     lon = float(coords[1])
 
     if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-        raise ValueError(f"Geçersiz koordinat: ({lat}, {lon})")
+        raise ValueError(f"invalid coord: ({lat}, {lon})")
 
     return lat, lon
 
@@ -33,7 +33,7 @@ def _request_json(
     timeout: int = 30,
     retries: int = 3,
 ) -> Dict[str, Any]:
-    """OSRM isteğini kısa süreli sunucu hatalarına karşı tekrarlar."""
+    """repeat if error."""
     last_error: Optional[Exception] = None
 
     for attempt in range(retries):
@@ -47,7 +47,7 @@ def _request_json(
 
             if response.status_code == 429 or response.status_code >= 500:
                 raise requests.HTTPError(
-                    f"OSRM geçici servis hatası: HTTP {response.status_code}",
+                    f"error: HTTP {response.status_code}",
                     response=response,
                 )
 
@@ -59,7 +59,7 @@ def _request_json(
             if attempt < retries - 1:
                 time.sleep(0.8 * (attempt + 1))
 
-    raise RuntimeError(f"OSRM servisine ulaşılamadı: {last_error}")
+    raise RuntimeError(f"couldn't connect to OSRM service: {last_error}")
 
 
 def vectorized_haversine(
@@ -91,7 +91,6 @@ def vectorized_haversine(
 
 
 def get_osrm_route(coords_list: Sequence[Sequence[float]]) -> Dict[str, Any]:
-    """Verilen sıralı noktalar için gerçek yol geometrisi ve rota özetini getirir."""
     normalized_coords = [_normalize_coordinate(coords) for coords in coords_list]
 
     if len(normalized_coords) < 2:
@@ -156,7 +155,7 @@ def get_osrm_route_distance(
     start_coords: Sequence[float],
     end_coords: Sequence[float],
 ) -> float:
-    """İki koordinat arasındaki gerçek sürüş mesafesini KM olarak döndürür."""
+    """calculates km between two coordinates."""
     start_lat, start_lon = _normalize_coordinate(start_coords)
     end_lat, end_lon = _normalize_coordinate(end_coords)
 
@@ -252,7 +251,7 @@ def calculate_route(
     choice_offset: int = 0,
     leg_index: int = 0,
     max_stops: int = 20,
-    max_osrm_candidates: int = 60,
+    max_osrm_candidates: int = 15,
     tortuosity: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
