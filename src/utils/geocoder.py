@@ -2,11 +2,11 @@ import googlemaps
 import streamlit as st
 
 try:
-    API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
-    gmaps = googlemaps.Client(key=API_KEY)
-except Exception as e:
-    print(f"API Key yüklenemedi: {e}")
-    gmaps = None
+    from config import GOOGLE_MAPS_API_KEY
+except ModuleNotFoundError:
+    GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
+
+gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
 def get_coordinates(location_name: str) -> dict:
     if not gmaps:
