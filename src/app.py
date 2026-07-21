@@ -10,6 +10,7 @@ from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 import os
 import sys
+import math
 from utils.geocoder import get_coordinates
 from utils.optimizer import calculate_route, get_real_road_route, calculate_multi_waypoint_route
 
@@ -21,29 +22,25 @@ except ModuleNotFoundError:
     key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
 
-st.set_page_config(page_title="SRO | Spatial Route Optimizer", layout="wide", initial_sidebar_state="expanded", page_icon="📍")
+st.set_page_config(page_title="SRO | Spatial Route Optimizer", layout="wide", initial_sidebar_state="expanded")
 
 # ==========================================
 # CUSTOM CSS
 # ==========================================
 st.markdown("""
     <style>
-        /* Google Fonts'tan Poppins fontunu çekiyoruz */
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-        /* Sadece metin içeren ana yapıları hedefliyoruz, her şeye zorlamıyoruz */
         html, body, p, div, span, label {
             font-family: 'Poppins', sans-serif;
         }
         
-        /* Başlıkların daha zarif durması için ufak bir dokunuş */
         h1, h2, h3 {
             font-family: 'Poppins', sans-serif !important;
             font-weight: 600 !important;
             color: #2C3E50 !important;
         }
         
-        /* Streamlit'in kendi ikonlarının (oklar, menü butonları) bozulmasını engelliyoruz */
         .material-icons, [class*="icon"], [data-testid="stIconMaterial"] {
             font-family: 'Material Symbols Rounded' !important;
         }
@@ -94,19 +91,28 @@ with col_logo:
 
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-def search_for_dropdown(searchterm: str):
-    if not searchterm:
+def create_search_function(box_key):
+    """
+    Her arama kutusuna özel bir hafıza alanı yaratır.
+    Sayfa yenilendiğinde listenin kaybolmasını ve IndexError vermesini engeller.
+    """
+    def search_for_dropdown(searchterm: str):
+        if not searchterm:
+            return st.session_state.get(f"{box_key}_options", [])
+        
+        results = get_coordinates(searchterm)
+        if isinstance(results, dict):
+            options = [(address, coords) for address, coords in results.items()]
+            st.session_state[f"{box_key}_options"] = options
+            return options
         return []
-    results = get_coordinates(searchterm)
-    if isinstance(results, dict):
-        return [(address, coords) for address, coords in results.items()]
-    return []
+    return search_for_dropdown
 
 with st.sidebar:
     
     st.markdown("**Start Location**")
     start_coords_final = st_searchbox(
-        search_for_dropdown,
+        create_search_function("start"),
         key="start_searchbox",
         placeholder="Start typing... (e.g., Istanbul)"
     )
@@ -115,7 +121,7 @@ with st.sidebar:
     for i in range(st.session_state.waypoint_count):
         st.markdown(f"**Stopover {i+1}**")
         wp_coords = st_searchbox(
-            search_for_dropdown,
+            create_search_function(f"wp_{i}"),
             key=f"wp_searchbox_{i}",
             placeholder="Add a stopover..."
         )
@@ -124,15 +130,14 @@ with st.sidebar:
 
     st.markdown("**Final Destination**")
     end_coords_final = st_searchbox(
-        search_for_dropdown,
+        create_search_function("end"),
         key="end_searchbox",
         placeholder="Start typing... (e.g., Ankara)"
     )
 
-
     col_add, col_clear = st.columns(2)
     with col_add:
-        if st.button("➕ Add Stop", use_container_width=True):
+        if st.button("Add Stop", use_container_width=True):
             st.session_state.waypoint_count += 1
             st.rerun()
     with col_clear:
@@ -142,20 +147,7 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-
 st.sidebar.markdown("---")
-
-# if st.button("🔍 Google API Test Et", use_container_width=True):
-       # try:
-          #  import googlemaps
-          #  anahtar = st.secrets["GOOGLE_MAPS_API_KEY"]
-          #  gmaps_test = googlemaps.Client(key=anahtar)
-          #  sonuc = gmaps_test.geocode("İstanbul", components={"country": "TR"})
-          #  st.success("BAŞARILI! API çalışıyor.")
-          #  st.write(sonuc)
-       # except Exception as e:
-         #   st.error(f"HATA DETAYI: {e}")
-
 
 with st.sidebar.form(key="route_setup_form"):
     st.subheader("Vehicle & Capacity")
@@ -212,8 +204,7 @@ elif "EV" in engine_type and req_strict:
 if submit_button:
     st.session_state.remaining_range = current_range 
     
-    with st.spinner("🗺️ Calculating coordinates and optimizing route..."): 
-        
+    with st.spinner("Calculating coordinates and optimizing route..."): 
         if start_coords_final is None or end_coords_final is None:
             st.error("Please explicitly select Start and Destination locations.")
         else:
@@ -244,10 +235,7 @@ if submit_button:
 # ==========================================
 # 5. MAIN DASHBOARD UI (Dinamik Metrikler)
 # ==========================================
-import math
-
 def calculate_total_distance(coords_list):
-    """Kuş uçuşu (Haversine) mesafelerin toplamını hesaplar."""
     total_dist = 0.0
     for i in range(len(coords_list) - 1):
         lat1, lon1 = coords_list[i]
@@ -260,11 +248,9 @@ def calculate_total_distance(coords_list):
         total_dist += R * c
     return total_dist
 
-# Rota hesaplanmışsa dinamik mesafeyi bul, yoksa varsayılan değer göster
 display_distance = "-- KM"
 if "full_waypoints" in st.session_state and st.session_state.full_waypoints:
     raw_dist = calculate_total_distance(st.session_state.full_waypoints)
-    # Yolun viraj payını (Tortuosity Factor) hesaba katarak gerçeğe en yakın mesafeyi buluyoruz
     final_dist = int(raw_dist * user_tortuosity)
     display_distance = f"~{final_dist} KM"
 
@@ -290,17 +276,13 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
         
     for stop_idx, candidates in enumerate(st.session_state.optimized_route):
         st.markdown(f"**Required Stop {stop_idx + 1}**")
-        
 
         options = []
         for c in candidates:
             wc_tag = " | WC" if c.get('has_wc') else ""
             mkt_tag = " | Market" if c.get('has_market') else ""
-            
-            # Algoritmadan gelen uzama miktarını çekiyoruz
             ekstra_km = c.get('detour', 0.0)
             
-            # Kurumsal kullanıcının anlayacağı dilde net bir metin formatı
             options.append(f"{c['provider']}{wc_tag}{mkt_tag} (+{ekstra_km:.1f} KM Uzama)")
             
         current_choice = st.session_state.user_selections.get(stop_idx, 0)
@@ -328,7 +310,7 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
 m = folium.Map(
     location=[39.0, 35.0], 
     zoom_start=6, 
-    tiles="CartoDB positron" # AÇIK RENK HARİTA TEMASI
+    tiles="CartoDB positron" 
 )
 marker_cluster = MarkerCluster().add_to(m)
 
@@ -340,8 +322,8 @@ for idx, row in filtered_df.iterrows():
     icon_path = f"src/assets/{img_name}.png"
     
     tooltip_text = f"<b>{marka}</b><br>Type: {row['station_type'].upper()}"
-    if row['has_wc'] == True: tooltip_text += "<br>WC: ✔️"
-    if row['has_market'] == True: tooltip_text += "<br>Market: ✔️"
+    if row['has_wc'] == True: tooltip_text += "<br>WC: Available"
+    if row['has_market'] == True: tooltip_text += "<br>Market: Available"
     
     if os.path.exists(icon_path):
         custom_icon = folium.CustomIcon(icon_path, icon_size=(35, 35))
@@ -361,13 +343,10 @@ for idx, row in filtered_df.iterrows():
         ).add_to(marker_cluster)
 
 if "optimized_route" in st.session_state and st.session_state.optimized_route:
-    route_coords = []
     try:
         user_waypoints = st.session_state.full_waypoints
         
-        # 1. Ana durakları (Start, Waypoint, End) ekle
         for idx, wp in enumerate(user_waypoints):
-            route_coords.append(wp)
             if idx == 0:
                 folium.Marker(wp, tooltip="Start Location", icon=folium.Icon(color="green", icon="play")).add_to(m)
             elif idx == len(user_waypoints) - 1:
@@ -375,30 +354,31 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
             else:
                 folium.Marker(wp, tooltip=f"Waypoint {idx}", icon=folium.Icon(color="purple", icon="info-sign")).add_to(m)
             
-        # 2. Seçilen yakıt istasyonlarını ekle (Çift marker hatası düzeltildi)
         for best_stop in final_selected_stops:
             stop_coord = (best_stop['lat'], best_stop['lon'])
-            route_coords.append(stop_coord)
-            
             folium.Marker(
                 stop_coord, 
-                tooltip=f"🛑 OPTIMAL STOP: {best_stop['provider']}", 
+                tooltip=f"OPTIMAL STOP: {best_stop['provider']}", 
                 icon=folium.Icon(color="orange", icon="star", prefix="fa")
             ).add_to(m)
 
-        # 3. TOPOLOGICAL SORTING (Geriye Dönüş Hatasını Çözen Kısım - EKLENDİ)
-        dest_coord = user_waypoints[-1] 
-        start_coord = route_coords[0]
-        middle_coords = route_coords[1:]
+        start_coord = user_waypoints[0]
+        dest_coord = user_waypoints[-1]
         
+        middle_coords = []
+        if len(user_waypoints) > 2:
+            middle_coords.extend(user_waypoints[1:-1])
+            
+        for best_stop in final_selected_stops:
+            middle_coords.append((best_stop['lat'], best_stop['lon']))
+            
         middle_coords.sort(
             key=lambda x: math.sqrt((x[0] - dest_coord[0])**2 + (x[1] - dest_coord[1])**2), 
             reverse=True
         )
         
-        route_coords = [start_coord] + middle_coords
+        route_coords = [start_coord] + middle_coords + [dest_coord]
 
-        # 4. Doğru sıraya dizilmiş rotayı OSRM'e gönder
         real_road_path = get_real_road_route(route_coords)
 
         folium.PolyLine(
@@ -411,6 +391,6 @@ if "optimized_route" in st.session_state and st.session_state.optimized_route:
         m.fit_bounds([user_waypoints[0], user_waypoints[-1]])
         
     except Exception as e:
-        st.warning(f"Harita çiziminde ufak bir hata oluştu: {e}")
+        st.warning(f"Map rendering error: {e}")
 
 st_folium(m, width="100%", height=600, returned_objects=[])
