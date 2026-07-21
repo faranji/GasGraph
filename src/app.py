@@ -525,7 +525,7 @@ if route_plan and route_plan.get("candidate_groups"):
     for stop_index, candidates in enumerate(route_plan["candidate_groups"]):
         leg_number = int(candidates[0].get("leg_index", 0)) + 1
         st.markdown(
-            f"**Required Stop {stop_index + 1} · Route Leg {leg_number}**"
+            f"**Required Stop {stop_index + 1}**"
         )
 
         option_labels = []
