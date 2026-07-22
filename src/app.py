@@ -662,7 +662,7 @@ with st.sidebar.form(key="route_setup_form"):
     # req_market = st.checkbox("Market Available")
     req_strict = st.checkbox("LPG / Fast Charge Only")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # st.markdown("<br>", unsafe_allow_html=True)
     submit_button = st.form_submit_button(
         label="Optimize Route",
         use_container_width=True,
