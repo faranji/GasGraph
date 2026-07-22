@@ -261,7 +261,7 @@ except Exception as exc:
 def create_search_function(box_key: str):
 
     def search_for_dropdown(searchterm: str):
-        if not searchterm:
+        if not searchterm or len(searchterm) < 3:
             return st.session_state.get(f"{box_key}_options", [])
 
         results = get_coordinates(searchterm)
@@ -569,7 +569,7 @@ with col_logo:
 
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
-with st.sidebar:
+with st.sidebar.container(border=True):
     st.markdown("**Start Location**")
     start_coords_final = st_searchbox(
         create_search_function("start"),
@@ -613,15 +613,16 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-
-with st.sidebar.form(key="route_setup_form"):
-    submit_button = st.form_submit_button(
-        label="Optimize Route",
+    submit_button = st.button(
+        "Optimize Route",
         type="primary",
         use_container_width=True,
+        key="optimize_route_main",
     )
 
+st.sidebar.markdown("---")
+
+with st.sidebar.container(border=True):
     st.subheader("Vehicle & Capacity")
     engine_type = st.selectbox(
         "Vehicle Type",
