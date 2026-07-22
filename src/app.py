@@ -34,7 +34,7 @@ st.set_page_config(
     page_title="SRO | Spatial Route Optimizer",
     layout="wide",
     initial_sidebar_state="expanded",
-    page_icon="🚗",
+    page_icon=":no_mouth:",
 )
 
 
