@@ -1,6 +1,7 @@
 import os
 import ssl
 import sys
+import html
 from pathlib import Path
 from typing import Any, Dict, List
 
