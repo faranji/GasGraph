@@ -658,9 +658,9 @@ with st.sidebar.form(key="route_setup_form"):
         help="Select one or more brands. Leave empty to include all brands.",
     )
 
-    req_wc = st.checkbox("WC Available (Bonus)")
-    req_market = st.checkbox("Market Available (Bonus)")
-    req_strict = st.checkbox("LPG / Fast Charge Only (Strict)")
+    req_wc = st.checkbox("WC Available")
+    req_market = st.checkbox("Market Available")
+    req_strict = st.checkbox("LPG / Fast Charge Only")
 
     st.markdown("<br>", unsafe_allow_html=True)
     submit_button = st.form_submit_button(
@@ -898,7 +898,7 @@ if route_plan and route_plan.get("candidate_groups"):
         selected_detour = float(selected_candidate.get("detour", 0.0))
 
         expander_title = (
-            f"Required Stop {stop_index + 1} · Route Leg {leg_number} · "
+            f"Required Stop {stop_index + 1} · "
             f"{selected_name} · +{selected_detour:.1f} km detour"
         )
 
