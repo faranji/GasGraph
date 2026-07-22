@@ -395,12 +395,19 @@ def calculate_route(
             + preliminary_forward_penalty
         )
 
-        shortlist = (
+        aggressive_candidates = (
             preliminary_df
             .sort_values(["_approx_cost", "_air_to_destination"])
-            .head(int(max_osrm_candidates))
-            .copy()
+            .head(int(max_osrm_candidates) - 5)
         )
+
+        safe_candidates = (
+            preliminary_df
+            .sort_values(["_approx_cost", "_air_from_current"])
+            .head(5)
+        )
+
+        shortlist = pd.concat([aggressive_candidates, safe_candidates]).drop_duplicates(subset=["id"]).copy()
 
         matrix_coords: List[Coordinate] = [
             current_loc,
