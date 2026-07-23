@@ -248,7 +248,7 @@ def calculate_route(
     choice_offset: int = 0,
     leg_index: int = 0,
     max_stops: int = 20,
-    max_osrm_candidates: int = 15,
+    max_osrm_candidates: int = 30,
     tortuosity: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
@@ -392,19 +392,32 @@ def calculate_route(
             + preliminary_forward_penalty
         )
 
-        aggressive_candidates = (
+        # Keep both forward-progress candidates and genuinely nearby
+        # candidates in the OSRM shortlist. This prevents low-range routes
+        # from failing when all shortlisted stations are close by air but
+        # outside the usable range by road.
+        candidate_limit = max(10, int(max_osrm_candidates))
+        nearest_count = min(12, candidate_limit)
+        progress_count = max(0, candidate_limit - nearest_count)
+
+        progress_candidates = (
             preliminary_df
-            .sort_values(["_approx_cost", "_air_to_destination"])
-            .head(int(max_osrm_candidates) - 5)
+            .sort_values(["_air_to_destination", "_approx_cost"])
+            .head(progress_count)
         )
 
-        safe_candidates = (
+        nearest_candidates = (
             preliminary_df
-            .sort_values(["_approx_cost", "_air_from_current"])
-            .head(5)
+            .sort_values(["_air_from_current", "_approx_cost"])
+            .head(nearest_count)
         )
 
-        shortlist = pd.concat([aggressive_candidates, safe_candidates]).drop_duplicates(subset=["id"]).copy()
+        shortlist = (
+            pd.concat([progress_candidates, nearest_candidates])
+            .drop_duplicates(subset=["id"])
+            .head(candidate_limit)
+            .copy()
+        )
 
         matrix_coords: List[Coordinate] = [
             current_loc,
@@ -444,11 +457,15 @@ def calculate_route(
         if reachable_df.empty:
             if force_forward:
                 raise ValueError(
-                    "couldn't find any station(s)."
+                    "No reachable station also satisfies Force Forward Progress. "
+                    "Disable the option, increase the current range, or reduce "
+                    "the safety reserve."
                 )
 
             raise ValueError(
-                "couldn't find any station(s)."
+                "No station in the OSRM shortlist is reachable within the "
+                "current usable range. Try increasing the current range, "
+                "reducing the safety reserve, or selecting more brands."
             )
 
         # cost =  detour - advantages + remanining range (we will go as far as we can)
